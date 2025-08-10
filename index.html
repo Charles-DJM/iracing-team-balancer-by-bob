@@ -113,18 +113,10 @@
 
     <script>
         // --- Global State ---
-        let pilots = [
-            { id: 1, name: "bono", ir: 1999 },
-            { id: 2, name: "marcel", ir: 2230 },
-            { id: 3, name: "ju", ir: 2100 },
-            { id: 4, name: "zep", ir: 1200 },
-            { id: 5, name: "millef", ir: 1500 },
-            { id: 6, name: "elek", ir: 3000 },
-            { id: 7, name: "val", ir: 300 },
-            { id: 8, name: "bob", ir: 1700 },
-        ];
+        // Initially, the pilots array is empty. Users will add pilots via the UI.
+        let pilots = [];
         let selectedTeamSize = 2; // Default team size
-        let nextPilotId = pilots.length > 0 ? Math.max(...pilots.map(p => p.id)) + 1 : 1;
+        let nextPilotId = 1; // Start IDs from 1
 
         // --- Helper Functions (Pure Logic) ---
 
@@ -314,8 +306,9 @@
                     li.innerHTML = `
                         <span class="text-lg font-semibold text-gray-100">${pilot.name}</span>
                         <span class="text-md text-gray-300">IR: ${pilot.ir}</span>
-                        <button class="ml-4 text-red-400 hover:text-red-500 transition duration-200 remove-pilot-btn" data-id="${pilot.id}">
-                            <i class="fas fa-trash-alt"></i>
+                        <button class="ml-4 text-red-400 hover:text-red-500 transition duration-200 remove-pilot-btn cursor-pointer" data-id="${pilot.id}" aria-label="Remove pilot ${pilot.name}">
+                            <p>REMOVE</p>
+                            <i class="fas fa-times"></i> <!-- Changed to X icon -->
                         </button>
                     `;
                     pilotList.appendChild(li);
@@ -412,8 +405,9 @@
         };
 
         const handleRemovePilot = (event) => {
-            if (event.target.classList.contains('remove-pilot-btn') || event.target.closest('.remove-pilot-btn')) {
-                const button = event.target.closest('.remove-pilot-btn');
+            // Use event delegation: check if the clicked element or its parent is the remove button
+            const button = event.target.closest('.remove-pilot-btn');
+            if (button) {
                 const idToRemove = parseInt(button.dataset.id);
                 pilots = pilots.filter(p => p.id !== idToRemove);
                 renderPilots();
@@ -484,12 +478,8 @@
             teamSizeSelect.addEventListener('change', handleTeamSizeChange);
             calculateTeamsBtn.addEventListener('click', handleCalculateTeams);
 
-            // Initial calculation if there are enough default pilots
-            if (pilots.length >= selectedTeamSize) {
-                handleCalculateTeams();
-            } else {
-                 calculationMessage.textContent = `Add more pilots or reduce team size to calculate teams.`;
-            }
+            // Initial calculation guidance when no default pilots
+            calculationMessage.textContent = `Add pilots to get started!`;
         });
     </script>
 </body>
