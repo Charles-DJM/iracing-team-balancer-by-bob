@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pilot Team Balancer</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome CDN for icons -->
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom scrollbar for better aesthetics */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #4a5568; /* Tailwind gray-700 */
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #63b3ed; /* Tailwind blue-300 */
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #4299e1; /* Tailwind blue-400 */
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-900 to-gray-700 text-white p-4 font-inter antialiased flex flex-col items-center justify-center">
+
+    <div class="bg-gray-800 rounded-xl shadow-2xl p-8 max-w-4xl w-full">
+        <h1 class="text-4xl font-extrabold text-center text-blue-400 mb-8 tracking-wide">
+            <i class="fas fa-users mr-3"></i> Pilot Team Balancer
+        </h1>
+
+        <!-- Pilot Input Section -->
+        <div class="mb-8 p-6 bg-gray-700 rounded-lg shadow-inner">
+            <h2 class="text-2xl font-semibold text-blue-300 mb-4">Add Pilots</h2>
+            <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                <input
+                    type="text"
+                    id="pilotNameInput"
+                    placeholder="Pilot Name"
+                    class="flex-1 p-3 rounded-lg bg-gray-900 border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-400"
+                />
+                <input
+                    type="number"
+                    id="pilotIrInput"
+                    placeholder="IR Stat (0-5000)"
+                    class="flex-1 p-3 rounded-lg bg-gray-900 border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-400"
+                    min="0"
+                    max="5000"
+                />
+                <button
+                    id="addPilotBtn"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center"
+                >
+                    <i class="fas fa-plus mr-2"></i> Add Pilot
+                </button>
+            </div>
+            <p id="messageDisplay" class="text-red-400 mt-2 text-center"></p>
+
+            <!-- Pilot List -->
+            <div class="mt-6 border-t border-gray-600 pt-4 max-h-60 overflow-y-auto custom-scrollbar">
+                <h3 class="text-xl font-medium text-gray-300 mb-3">Current Pilots (<span id="pilotCount">0</span>)</h3>
+                <ul id="pilotList" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <!-- Pilots will be injected here by JavaScript -->
+                </ul>
+            </div>
+        </div>
+
+        <!-- Team Configuration and Calculation -->
+        <div class="mb-8 p-6 bg-gray-700 rounded-lg shadow-inner">
+            <h2 class="text-2xl font-semibold text-blue-300 mb-4">Team Configuration</h2>
+            <div class="flex flex-col sm:flex-row items-center gap-4 mb-4">
+                <label for="teamSizeSelect" class="text-gray-300 text-lg mr-2">Team Size:</label>
+                <select
+                    id="teamSizeSelect"
+                    class="flex-1 p-3 rounded-lg bg-gray-900 border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white appearance-none pr-8"
+                >
+                    <option value="2">2 Pilots per Team</option>
+                    <option value="3">3 Pilots per Team</option>
+                </select>
+                <button
+                    id="calculateTeamsBtn"
+                    class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center"
+                >
+                    <i class="fas fa-users mr-2"></i> <span id="calculateBtnText">Calculate Teams</span>
+                </button>
+            </div>
+            <p id="calculationMessage" class="text-red-400 mt-2 text-center"></p>
+        </div>
+
+        <!-- Results Section -->
+        <div class="p-6 bg-gray-700 rounded-lg shadow-inner">
+            <h2 class="text-2xl font-semibold text-blue-300 mb-4">Assigned Teams</h2>
+            <p id="loadingMessage" class="text-blue-300 text-center flex items-center justify-center hidden">
+                <i class="fas fa-spinner fa-spin mr-3 text-lg"></i> Calculating...
+            </p>
+            <div id="teamsResults" class="hidden">
+                <ul id="assignedTeamsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    <!-- Assigned teams will be injected here by JavaScript -->
+                </ul>
+                <p id="overallStdDev" class="text-xl font-bold text-center text-yellow-300">
+                    <!-- Standard deviation will be injected here -->
+                </p>
+            </div>
+            <p id="noResultsMessage" class="text-gray-400 text-center">Click "Calculate Teams" to see assignments.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- Global State ---
+        let pilots = [
+            { id: 1, name: "bono", ir: 1999 },
+            { id: 2, name: "marcel", ir: 2230 },
+            { id: 3, name: "ju", ir: 2100 },
+            { id: 4, name: "zep", ir: 1200 },
+            { id: 5, name: "millef", ir: 1500 },
+            { id: 6, name: "elek", ir: 3000 },
+            { id: 7, name: "val", ir: 300 },
+            { id: 8, name: "bob", ir: 1700 },
+        ];
+        let selectedTeamSize = 2; // Default team size
+        let nextPilotId = pilots.length > 0 ? Math.max(...pilots.map(p => p.id)) + 1 : 1;
+
+        // --- Helper Functions (Pure Logic) ---
+
+        /**
+         * Calculates the mean IR for a given team.
+         * @param {Array<Object>} team - An array of pilot objects.
+         * @returns {number} The mean IR of the team.
+         */
+        const calculateMean = (team) => {
+            if (team.length === 0) return 0;
+            return team.reduce((sum, p) => sum + p.ir, 0) / team.length;
+        };
+
+        /**
+         * Calculates the standard deviation of mean IRs across multiple teams.
+         * @param {Array<Array<Object>>} teamsList - An array of team arrays.
+         * @returns {number} The standard deviation of the team means.
+         */
+        const calculateStdDev = (teamsList) => {
+            if (teamsList.length === 0) return 0;
+            const means = teamsList.map(calculateMean);
+            const meanOfMeans = means.reduce((sum, m) => sum + m, 0) / means.length;
+            const variance = means.reduce((sum, m) => sum + Math.pow(m - meanOfMeans, 2), 0) / means.length;
+            return Math.sqrt(variance);
+        };
+
+        /**
+         * Creates teams of a specified size, balancing them by IR statistics using a greedy approach
+         * followed by an optimization pass (swapping).
+         * @param {Array<Object>} people - An array of all pilot objects.
+         * @param {number} teamSize - The desired size for each team (2 or 3).
+         * @returns {{teams: Array<Array<Object>>, stdDev: number}} An object containing the assigned teams and the overall standard deviation.
+         */
+        const createTeams = (people, teamSize) => {
+            if (teamSize !== 2 && teamSize !== 3) {
+                throw new Error("Team size must be 2 or 3.");
+            }
+
+            const numPeople = people.length;
+            if (numPeople === 0) return { teams: [], stdDev: 0 };
+
+            let sortedPilots = [...people].sort((a, b) => a.ir - b.ir);
+            let teams = [];
+            let pilotsRemaining = [...sortedPilots];
+
+            // Greedy team formation: pair lowest IR with highest IR
+            while (pilotsRemaining.length >= teamSize) {
+                let team = [];
+                for (let i = 0; i < teamSize; i++) {
+                    if (pilotsRemaining.length > 0) {
+                        if (i % 2 === 0) {
+                            team.push(pilotsRemaining.shift()); // Take lowest IR pilot
+                        } else {
+                            team.push(pilotsRemaining.pop());  // Take highest IR pilot
+                        }
+                    } else {
+                        break; // No more pilots
+                    }
+                }
+                if (team.length > 0) {
+                    teams.push(team);
+                }
+            }
+
+            // Distribute any remaining pilots if they can't form a full team
+            if (pilotsRemaining.length > 0) {
+                if (teams.length > 0) {
+                    // Add remaining pilots to existing teams to make them 3 (if team size is 2) or ensure no one is left out
+                    // This can make the last team larger than 'teamSize' if numPeople is not a multiple
+                    pilotsRemaining.forEach(p => {
+                        // Find the team with the lowest current mean IR to add the pilot to
+                        let minMean = Infinity;
+                        let targetTeamIndex = -1;
+                        for (let i = 0; i < teams.length; i++) {
+                            const currentMean = calculateMean(teams[i]);
+                            if (currentMean < minMean) {
+                                minMean = currentMean;
+                                targetTeamIndex = i;
+                            }
+                        }
+                        if (targetTeamIndex !== -1) {
+                            teams[targetTeamIndex].push(p);
+                        } else {
+                            // Fallback: If no existing teams (shouldn't happen with logic above)
+                            teams.push([p]);
+                        }
+                    });
+                } else {
+                    // Should only happen if numPeople < teamSize initially and no teams were formed
+                    teams.push(pilotsRemaining);
+                }
+            }
+
+            // Ensure teams are not empty before calculating std dev
+            const validTeams = teams.filter(team => team.length > 0);
+            if (validTeams.length === 0) return { teams: [], stdDev: 0 };
+
+            // --- Local Optimization (Swapping) ---
+            let bestTeams = validTeams.map(t => [...t]); // Deep copy
+            let bestStdDev = calculateStdDev(bestTeams);
+            let improved = true;
+
+            // Loop until no further improvement can be made by swapping
+            while (improved) {
+                improved = false;
+                // Iterate through every possible pair of teams
+                for (let i = 0; i < bestTeams.length; i++) {
+                    for (let j = i + 1; j < bestTeams.length; j++) {
+                        // Ensure we don't try to swap with an empty team resulting from previous iteration's swap
+                        if (bestTeams[i].length === 0 || bestTeams[j].length === 0) continue;
+
+                        const team1Original = [...bestTeams[i]]; // Store original for reset
+                        const team2Original = [...bestTeams[j]];
+
+                        // Iterate through every possible pilot swap between the two teams
+                        for (let p1Index = 0; p1Index < team1Original.length; p1Index++) {
+                            for (let p2Index = 0; p2Index < team2Original.length; p2Index++) {
+                                // Create temporary teams for the swap for this specific attempt
+                                let tempTeams = bestTeams.map(t => [...t]);
+
+                                // Perform the swap by removing from one and adding to another
+                                let p1 = tempTeams[i].splice(p1Index, 1)[0];
+                                let p2 = tempTeams[j].splice(p2Index, 1)[0];
+
+                                tempTeams[i].push(p2);
+                                tempTeams[j].push(p1);
+
+                                // Check if the swap would create an empty team that shouldn't be empty
+                                if (tempTeams[i].length === 0 || tempTeams[j].length === 0) {
+                                    // If a swap makes a team empty where it wasn't before, revert and skip
+                                    continue;
+                                }
+
+                                const newStdDev = calculateStdDev(tempTeams);
+
+                                if (newStdDev < bestStdDev) {
+                                    bestTeams = tempTeams.map(t => [...t]); // Update best teams if improvement
+                                    bestStdDev = newStdDev;
+                                    improved = true; // Mark as improved to continue the outer loop
+                                    // Optimization: if an improvement is found, break from inner loops
+                                    // and restart the outer loop to re-evaluate from the new best state
+                                    break;
+                                }
+                            }
+                            if (improved) break; // Break from p1Index loop if improved
+                        }
+                        if (improved) break; // Break from j loop if improved
+                    }
+                    if (improved) break; // Break from i loop if improved
+                }
+            }
+            return { teams: bestTeams, stdDev: bestStdDev };
+        };
+
+        // --- DOM Elements ---
+        const pilotNameInput = document.getElementById('pilotNameInput');
+        const pilotIrInput = document.getElementById('pilotIrInput');
+        const addPilotBtn = document.getElementById('addPilotBtn');
+        const messageDisplay = document.getElementById('messageDisplay');
+        const pilotList = document.getElementById('pilotList');
+        const pilotCountSpan = document.getElementById('pilotCount');
+        const teamSizeSelect = document.getElementById('teamSizeSelect');
+        const calculateTeamsBtn = document.getElementById('calculateTeamsBtn');
+        const calculateBtnText = document.getElementById('calculateBtnText');
+        const calculationMessage = document.getElementById('calculationMessage');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const teamsResultsDiv = document.getElementById('teamsResults');
+        const assignedTeamsList = document.getElementById('assignedTeamsList');
+        const overallStdDev = document.getElementById('overallStdDev');
+        const noResultsMessage = document.getElementById('noResultsMessage');
+
+        // --- UI Rendering Functions ---
+
+        /**
+         * Renders the current list of pilots in the DOM.
+         */
+        const renderPilots = () => {
+            pilotList.innerHTML = ''; // Clear existing list
+            pilotCountSpan.textContent = pilots.length;
+
+            if (pilots.length === 0) {
+                pilotList.innerHTML = '<p class="text-gray-400 text-center col-span-full">No pilots added yet.</p>';
+            } else {
+                pilots.forEach(pilot => {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-center justify-between bg-gray-900 p-3 rounded-lg shadow-sm border border-gray-700';
+                    li.innerHTML = `
+                        <span class="text-lg font-semibold text-gray-100">${pilot.name}</span>
+                        <span class="text-md text-gray-300">IR: ${pilot.ir}</span>
+                        <button class="ml-4 text-red-400 hover:text-red-500 transition duration-200 remove-pilot-btn" data-id="${pilot.id}">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    `;
+                    pilotList.appendChild(li);
+                });
+            }
+        };
+
+        /**
+         * Renders the calculated teams in the DOM.
+         * @param {Array<Array<Object>>} teams - The array of assigned teams.
+         * @param {number} stdDev - The standard deviation of team means.
+         */
+        const renderTeams = (teams, stdDev) => {
+            assignedTeamsList.innerHTML = ''; // Clear existing teams
+            noResultsMessage.classList.add('hidden');
+            teamsResultsDiv.classList.remove('hidden');
+
+            if (teams.length === 0) {
+                assignedTeamsList.innerHTML = '<p class="text-gray-400 text-center col-span-full">No teams could be formed.</p>';
+                overallStdDev.textContent = '';
+                return;
+            }
+
+            teams.forEach((team, index) => {
+                const li = document.createElement('li');
+                li.className = 'bg-gray-900 p-4 rounded-lg shadow-md border border-gray-600';
+                const meanIr = calculateMean(team).toFixed(2);
+                li.innerHTML = `
+                    <h3 class="text-xl font-bold text-teal-300 mb-2">Team ${index + 1} (${team.length} members)</h3>
+                    <ul class="list-disc list-inside text-gray-200">
+                        ${team.map(p => `<li>${p.name} (IR: ${p.ir})</li>`).join('')}
+                    </ul>
+                    <p class="mt-3 text-lg font-semibold text-green-400">Mean IR: ${meanIr}</p>
+                `;
+                assignedTeamsList.appendChild(li);
+            });
+
+            overallStdDev.textContent = `Overall Standard Deviation of Team Means: ${stdDev.toFixed(2)}`;
+        };
+
+        /**
+         * Displays a message to the user.
+         * @param {string} msg - The message to display.
+         * @param {string} type - 'error' or 'info'.
+         */
+        const displayMessage = (msg, type = 'error') => {
+            messageDisplay.textContent = msg;
+            messageDisplay.className = `mt-2 text-center ${type === 'error' ? 'text-red-400' : 'text-blue-400'}`;
+        };
+
+        /**
+         * Shows or hides the loading spinner.
+         * @param {boolean} show - True to show, false to hide.
+         */
+        const showLoading = (show) => {
+            if (show) {
+                loadingMessage.classList.remove('hidden');
+                calculateTeamsBtn.disabled = true;
+                calculateBtnText.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Calculating...';
+            } else {
+                loadingMessage.classList.add('hidden');
+                calculateTeamsBtn.disabled = false;
+                calculateBtnText.innerHTML = '<i class="fas fa-users mr-2"></i> Calculate Teams';
+            }
+        };
+
+        // --- Event Handlers ---
+
+        const handleAddPilot = () => {
+            const name = pilotNameInput.value.trim();
+            const ir = parseInt(pilotIrInput.value);
+
+            if (name === '' || isNaN(ir) || ir < 0 || ir > 5000) {
+                displayMessage('Please enter a valid pilot name and an IR stat between 0 and 5000.');
+                return;
+            }
+
+            // Check for duplicate names (optional, but good practice)
+            if (pilots.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+                displayMessage('A pilot with this name already exists.');
+                return;
+            }
+
+            pilots.push({ id: nextPilotId++, name: name, ir: ir });
+            pilotNameInput.value = '';
+            pilotIrInput.value = '';
+            displayMessage('', 'info'); // Clear message
+            renderPilots();
+            // Clear previous results when pilots change
+            assignedTeamsList.innerHTML = '';
+            overallStdDev.textContent = '';
+            teamsResultsDiv.classList.add('hidden');
+            noResultsMessage.classList.remove('hidden');
+        };
+
+        const handleRemovePilot = (event) => {
+            if (event.target.classList.contains('remove-pilot-btn') || event.target.closest('.remove-pilot-btn')) {
+                const button = event.target.closest('.remove-pilot-btn');
+                const idToRemove = parseInt(button.dataset.id);
+                pilots = pilots.filter(p => p.id !== idToRemove);
+                renderPilots();
+                // Clear previous results when pilots change
+                assignedTeamsList.innerHTML = '';
+                overallStdDev.textContent = '';
+                teamsResultsDiv.classList.add('hidden');
+                noResultsMessage.classList.remove('hidden');
+            }
+        };
+
+        const handleTeamSizeChange = (event) => {
+            selectedTeamSize = parseInt(event.target.value);
+            // Clear previous results when team size changes
+            assignedTeamsList.innerHTML = '';
+            overallStdDev.textContent = '';
+            teamsResultsDiv.classList.add('hidden');
+            noResultsMessage.classList.remove('hidden');
+            calculationMessage.textContent = ''; // Clear calculation messages
+        };
+
+        const handleCalculateTeams = () => {
+            if (pilots.length === 0) {
+                calculationMessage.textContent = 'Please add some pilots first.';
+                teamsResultsDiv.classList.add('hidden');
+                noResultsMessage.classList.remove('hidden');
+                return;
+            }
+            if (pilots.length < selectedTeamSize) {
+                calculationMessage.textContent = `You need at least ${selectedTeamSize} pilots to form teams of ${selectedTeamSize}.`;
+                teamsResultsDiv.classList.add('hidden');
+                noResultsMessage.classList.remove('hidden');
+                return;
+            }
+            calculationMessage.textContent = ''; // Clear previous messages
+            showLoading(true);
+
+            // Simulate a slight delay for better UX (like network request)
+            setTimeout(() => {
+                try {
+                    const { teams, stdDev } = createTeams(pilots, selectedTeamSize);
+                    renderTeams(teams, stdDev);
+                } catch (error) {
+                    calculationMessage.textContent = `Error: ${error.message}`;
+                    teamsResultsDiv.classList.add('hidden');
+                    noResultsMessage.classList.remove('hidden');
+                } finally {
+                    showLoading(false);
+                }
+            }, 100); // 100ms delay
+        };
+
+        // --- Event Listeners Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderPilots(); // Initial render of pilots
+            teamSizeSelect.value = selectedTeamSize; // Set initial dropdown value
+
+            addPilotBtn.addEventListener('click', handleAddPilot);
+            // Listen for 'enter' key on input fields to add pilot
+            pilotNameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleAddPilot();
+            });
+            pilotIrInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleAddPilot();
+            });
+
+            pilotList.addEventListener('click', handleRemovePilot); // Event delegation for remove buttons
+            teamSizeSelect.addEventListener('change', handleTeamSizeChange);
+            calculateTeamsBtn.addEventListener('click', handleCalculateTeams);
+
+            // Initial calculation if there are enough default pilots
+            if (pilots.length >= selectedTeamSize) {
+                handleCalculateTeams();
+            } else {
+                 calculationMessage.textContent = `Add more pilots or reduce team size to calculate teams.`;
+            }
+        });
+    </script>
+</body>
+</html>
